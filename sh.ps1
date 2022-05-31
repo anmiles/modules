@@ -42,7 +42,7 @@ Param (
     [switch]$debug
 )
 
-if (!$shell) { $shell = "wsl" }
+if (!$shell) { $shell = $env:SH }
 
 $bash = switch($shell) {
     "git" { "C:\Program Files\Git\bin\sh.exe" }
@@ -54,12 +54,6 @@ $prompt_color = switch($shell) {
     "git" { 36 }
     "wsl" { 33 }
     "cygwin" { 35 }
-}
-
-$root = switch($shell) {
-    "git" { "/" }
-    "wsl" { "/mnt/" }
-    "cygwin" { "/mnt/" }
 }
 
 if (!(Test-Path $bash)) {
@@ -74,13 +68,16 @@ if ($debug) {
 $path = (Resolve-Path $path).Path
 if (!$title) { $title = Split-Path $path -Leaf }
 
-if ($shell -eq "wsl" -and $env:WSL_ROOT) { $prompt_path = $path.Replace($env:GIT_ROOT, $env:WSL_ROOT).Replace('\', '/') }
-$prompt_path = [Regex]::Replace($prompt_path, '^(\w+):', { $root + $args[0].Groups[1].Value.ToLower() })
+$prompt_path = shpath -path $path -wsl:($shell -eq "wsl")
 
 $arguments = @("-i")
 $commands = @("cd $prompt_path")
 
 $envars.CUSTOM_PROMPT_COLOR = $prompt_color
+
+$env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
+    $envars.$_ = shpath -path ([Environment]::GetEnvironmentVariable($_)) -wsl:($shell -eq "wsl")
+}
 
 $envars.Keys | % {
     $commands += "export $_=$($envars[$_])"
@@ -88,7 +85,7 @@ $envars.Keys | % {
 
 if ($command -and $new) {
     $prompt_prefix = git rev-parse --abbrev-ref HEAD 2>$null
-    if (!$prompt_prefix) { $prompt_prefix = "sh" }
+    if (!$prompt_prefix) { $prompt_prefix = $shell }
     $commands += "printf '\033[$($prompt_color)m$prompt_prefix \033[0m\033[1;$($prompt_color)m$prompt_path>\033[0m $($command -replace "'", "'\''")\n'"
 }
 
