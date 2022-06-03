@@ -45,7 +45,7 @@ Param (
 if (!$shell) { $shell = $env:SH }
 
 $bash = switch($shell) {
-    "git" { "C:\Program Files\Git\bin\sh.exe" }
+    "git" { "C:\Program Files\Git\bin\bash.exe" }
     "wsl" { "C:\Windows\system32\bash.exe" }
     "cygwin" { "C:\cygwin64\bin\bash.exe" } # cygwin bash doesn't receive environment variables from here
 }
@@ -54,6 +54,20 @@ $prompt_color = switch($shell) {
     "git" { 36 }
     "wsl" { 33 }
     "cygwin" { 35 }
+}
+
+$root = switch($shell) {
+    "git" { "/" }
+    "wsl" { "/mnt/" }
+    "cygwin" { "/mnt/" }
+}
+
+Function Convert-Path([string]$path, [switch]$native) {
+    if (!$path) { return $path }
+    if ($native -and $shell -eq "wsl" -and $env:WSL_ROOT) { $path = $path.Replace($env:GIT_ROOT, $env:WSL_ROOT) }
+    $drive, $dir = $path -split ":"
+    if (!$dir) { return $path -replace '\\', '/' }
+    return $root + $drive.ToLower() + $dir -replace '\\', '/'
 }
 
 if (!(Test-Path $bash)) {
@@ -65,18 +79,20 @@ if ($debug) {
     out "{White:$command}"
 }
 
+$arguments = @()
+$commands = @()
+
 $path = (Resolve-Path $path).Path
 if (!$title) { $title = Split-Path $path -Leaf }
 
-$prompt_path = shpath -path $path -wsl:($shell -eq "wsl")
-
-$arguments = @("-i")
-$commands = @("cd $prompt_path")
+$prompt_path = Convert-Path -path $path -native
 
 $envars.CUSTOM_PROMPT_COLOR = $prompt_color
 
 $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
-    $envars.$_ = shpath -path ([Environment]::GetEnvironmentVariable($_)) -wsl:($shell -eq "wsl")
+    $var = [Environment]::GetEnvironmentVariable($_)
+    if ($var -and $var.Contains("`n")) { return }
+    $envars.$_ = Convert-Path -path $var
 }
 
 $envars.Keys | % {
@@ -89,16 +105,25 @@ if ($command -and $new) {
     $commands += "printf '\033[$($prompt_color)m$prompt_prefix \033[0m\033[1;$($prompt_color)m$prompt_path>\033[0m $($command -replace "'", "'\''")\n'"
 }
 
+$commands += "cd $prompt_path"
+
 if ($command) {
+    if ($command.StartsWith("git -C ")) {
+        $parts = $command -split " "
+        $cd = $parts.IndexOf("-C")
+        $parts[$cd + 1] = Convert-Path -path $parts[$cd + 1] -native
+        $command = $parts
+    }
+
     $commands += $command
 }
 
-$commands += "exitcode=`$?"
+$commands += "exitcode=\`$?"
 
 if (!$command -or $new) {
     $commands += "bash"
 } else {
-    $commands += "exit `$exitcode >/dev/null 2>&1"
+    $commands += "exit \`$exitcode >/dev/null 2>&1"
 }
 
 $b = switch($background) {
@@ -106,14 +131,8 @@ $b = switch($background) {
     $false { "" }
 }
 
-$arguments += @("-c", "`"$($commands -Join ";")`"")
-
-if ($new) {
-    $arguments += "-new_console:t:`"$title`"$b"
-    Start-Process $bash -ArgumentList $arguments
-} else {
-    & $bash $arguments
-    $result = $?
-}
-
-if ($result -eq $false) { exit 1 }
+$arguments = @()
+if ($new) { $arguments += "-new_console:t:`"$title`"$b" }
+$arguments += @("-i", "-c", "`"$($commands -Join ";")`"")
+# Write-Host "& $bash $arguments"
+& $bash $arguments
