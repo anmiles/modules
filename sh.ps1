@@ -87,6 +87,7 @@ if (!$title) { $title = Split-Path $path -Leaf }
 
 $prompt_path = Convert-Path -path $path -native
 
+$envars.NONINTERACTIVE = [int]($command -and !$new)
 $envars.CUSTOM_PROMPT_COLOR = $prompt_color
 
 $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
@@ -120,10 +121,10 @@ if ($command) {
 
 $commands += "exitcode=\`$?"
 
-if (!$command -or $new) {
-    $commands += "bash"
-} else {
+if ($envars.NONINTERACTIVE) {
     $commands += "exit \`$exitcode >/dev/null 2>&1"
+} else {
+    $commands += "bash"
 }
 
 $b = switch($background) {
