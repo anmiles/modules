@@ -9,58 +9,80 @@
 
 class Timer {
     [string]$format
+    [string]$elapsedFormat
+    [switch]$accurate
     [DateTime]$start_date
     [DateTime]$task_start_date
+    [DateTime]$current_date
     [string]$task_title
+    [TimeSpan]$elapsed
+    [bool]$running
     
-    Timer([string]$format) {
+    Timer([string]$format, [switch]$accurate) {
         $this.format = $format
+        $this.accurate = $accurate
+        $this.elapsedFormat = switch($accurate) {
+            $true { "ss'.'fff" }
+            $false { "mm':'ss" }
+        }
+        $this.elapsed = [TimeSpan]::new(0)
     }
 
     [Timer] Start() {
         out ""
-        $this.start_date = $this.Output("{Green:STARTED}", $true)
+        $this.Output("{Green:STARTED}", $true)
         return $this
     }
 
     [void] Finish() {
-        $this.Output("{Green:FINISHED}", $false, $this.start_date)
+        if ($this.running) { $this.FinishTask() }
+        $this.Output("{Green:FINISHED}", $false, $null, $this.elapsed)
         out ""
     }
 
     [void] StartTask([string]$title) {
+        if ($this.running) { $this.FinishTask() }
+        $this.running = $true
+
         $this.task_title = $title
-        $this.task_start_date = $this.Output("{Green:start} $($this.task_title)", $false)
+        $this.Output("{Green:start} $($this.task_title)", $false)
+        $this.task_start_date = $this.current_date
     }
 
     [void] FinishTask() {
+        $this.running = $false
         $this.Output("{Green:finish} $($this.task_title)", $true, $this.task_start_date)
+        $this.elapsed += $this.current_date - $this.task_start_date
     }
 
-    [DateTime]Output([string]$text, $underline, $start_date){
-        $current_date = Get-Date
-
-        if ($start_date) {
-            $elapsed = ($current_date - $start_date)
-            $elapsedString = [Math]::Floor($elapsed.TotalMinutes).ToString()
-            $elapsedString += ":" + $elapsed.Seconds.ToString().PadLeft(2, "0")
-            $text += " {Gray:in} {Green:$elapsedString}"
+    [void]Output([string]$text, $underline, $from_date, $_elapsed){
+        if ($from_date -or $_elapsed) {
+            $this.current_date = Get-Date
+            if (!$_elapsed) { $_elapsed = ($this.current_date - $from_date) }
+            $text += " {Gray:in} {Green:$($_elapsed.ToString($this.elapsedFormat))}"
         }
 
-        out "[$($current_date.ToString($this.format))] $text" -ForegroundColor Yellow -underline:$underline
+        out "[$($this.current_date.ToString($this.format))] $text" -ForegroundColor Yellow -underline:$underline
 
-        return $current_date
+        if (!$from_date) {
+            $this.current_date = Get-Date
+        }
     }
 
-    [DateTime]Output([string]$text, $underline){
-        return $this.Output($text, $underline, $null)
+    [void]Output([string]$text, $underline){
+        $this.Output($text, $underline, $null, $null)
+    }
+
+    [void]Output([string]$text, $underline, $from_date){
+        $this.Output($text, $underline, $from_date, $null)
     }
 }
 
 Function Start-Timer {
     Param (
-        [string]$format = "yyyy-MM-dd HH:mm:ss"
+        [string]$format = "yyyy-MM-dd HH:mm:ss",
+        [switch]$accurate
     )
 
-    return [Timer]::new($format).Start()
+    return [Timer]::new($format, $accurate).Start()
 }
