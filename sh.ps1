@@ -137,3 +137,4 @@ if ($new) { $arguments += "-new_console:t:`"$title`"$b" }
 $arguments += @("-i", "-c", "`"$($commands -Join ";")`"")
 # Write-Host "& $bash $arguments"
 & $bash $arguments
+exit $LastExitCode
