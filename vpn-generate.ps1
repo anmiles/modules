@@ -1,6 +1,6 @@
 Function Generate-VPN {
     Param (
-        [string]$root = "C:/Program Files/OpenVPN",
+        [string]$root = "D:/openvpn",
 
         [string]$proto_server = "tcp4",
         [string]$proto_client = "tcp4",
@@ -13,7 +13,7 @@ Function Generate-VPN {
         [Parameter(Mandatory = $true)][string]$server_name, # "home"
         [Parameter(Mandatory = $true)][string[]]$client_names, # @("mobile", "notebook", "laptop")
         [string]$revoke_crt = "revokecrt",
-        
+
         [Parameter(Mandatory = $true)][string]$name, # $server_name
         [Parameter(Mandatory = $true)][string]$cn, # $server_name
         [Parameter(Mandatory = $true)][string]$org, # $server_name
@@ -22,7 +22,7 @@ Function Generate-VPN {
         [Parameter(Mandatory = $true)][string]$province, # "MO"
         [Parameter(Mandatory = $true)][string]$city, # "Moscow"
         [Parameter(Mandatory = $true)][string]$email, # "user@example.com"
-        
+
         [string]$dn = "org",
         [string]$digest = "sha-512",
         [int]$key_size = 2048,
@@ -32,21 +32,15 @@ Function Generate-VPN {
         [switch]$regenerate_all_keys
     )
 
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_NAME", $name, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_CN", $cn, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_ORG", $org, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_OU", $ou, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_COUNTRY", $country, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_PROVINCE", $province, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_CITY", $city, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_REQ_EMAIL", $email, "Process")
-
-    [Environment]::SetEnvironmentVariable("EASYRSA_DN", $dn, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_DIGEST", $digest, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_KEY_SIZE", $key_size, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_CERT_EXPIRE", $key_days, "Process")
-    [Environment]::SetEnvironmentVariable("EASYRSA_CRL_DAYS", $crl_days, "Process")
-
+    [Environment]::SetEnvironmentVariable("KEY_NAME", $name, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_CN", $cn, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_ORG", $org, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_OU", $ou, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_COUNTRY", $country, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_PROVINCE", $province, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_CITY", $city, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_EMAIL", $email, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_SIZE", $key_size, "Process")
     [Environment]::SetEnvironmentVariable("PKCS11_MODULE_PATH", "dummy", "Process")
     [Environment]::SetEnvironmentVariable("PKCS11_PIN", "dummy", "Process")
 
@@ -57,8 +51,9 @@ Function Generate-VPN {
     $_keys = "$_easy_rsa/keys"
     $_certs = "$_keys/certs_by_serial"
     $_private = "$_keys/private"
-    [Environment]::SetEnvironmentVariable("EASYRSA_PKI", $_keys, "Process")
-    
+    [Environment]::SetEnvironmentVariable("HOME", $root, "Process")
+    [Environment]::SetEnvironmentVariable("KEY_DIR", $_keys, "Process")
+
     $_cnf = (Get-Item "$_easy_rsa/openssl-*.cnf").FullName
 
     $subject = "/C=$country/ST=$province/L=$city/O=$org/OU=$ou/CN=$cn"
@@ -88,7 +83,7 @@ Function Generate-VPN {
 
     if (!(Test-Path $_keys/ta.key)) {
         Write-Host "Generating static key..." -ForegroundColor Green
-        & $_bin/openvpn --genkey secret $_keys/ta.key
+        & $_bin/openvpn --genkey --secret $_keys/ta.key
     }
 
     if (!(Test-Path $_keys/dh$key_size.pem)) {
@@ -104,9 +99,9 @@ Function Generate-VPN {
     if (!(Test-Path $_keys/crl.pem)) {
         Write-Host "Generating revoke key..." -ForegroundColor Green
         & $_bin/openssl req -days $key_days -passout "pass:$(GetServerPassword)" -new -keyout $_keys/$revoke_crt.key -out $_keys/$revoke_crt.csr -config $_cnf -subj $subject=$revoke_crt
-        & $_bin/openssl ca -days $key_days -passin "pass:$(GetServerPassword)" -batch -out $_keys/$revoke_crt.crt -in $_keys/$revoke_crt.csr -config $_cnf
-        & $_bin/openssl ca -revoke $_keys/$revoke_crt.crt -passin "pass:$(GetServerPassword)" -config $_cnf
-        & $_bin/openssl ca -gencrl -crldays $crl_days -out $_keys/crl.pem -passin "pass:$(GetServerPassword)" -config $_cnf
+        & $_bin/openssl ca -days $key_days -passin "pass:$(GetServerPassword)" -batch -out $_keys/$revoke_crt.crt -in $_keys/$revoke_crt.csr -keyfile $_private/ca.key -config $_cnf
+        & $_bin/openssl ca -revoke $_keys/$revoke_crt.crt -passin "pass:$(GetServerPassword)" -keyfile $_private/ca.key -config $_cnf
+        & $_bin/openssl ca -gencrl -crldays $crl_days -out $_keys/crl.pem -passin "pass:$(GetServerPassword)" -keyfile $_private/ca.key -config $_cnf
 
         Get-Content $_keys/ca.crt, $_keys/crl.pem | Set-Content $_keys/revoke_test_file.pem
         & $_bin/openssl verify -CAfile $_keys/revoke_test_file.pem -crl_check $_keys/$revoke_crt.crt
@@ -116,13 +111,13 @@ Function Generate-VPN {
     if (!(Test-Path $_keys/$server_name.crt)) {
         Write-Host "Generating server certificate [$server_name]..." -ForegroundColor Green
         & $_bin/openssl req -days $key_days -passout "pass:$(GetServerPassword)" -new -keyout $_keys/$server_name.key -out $_keys/$server_name.csr -config $_cnf -subj $subject=$server_name
-        & $_bin/openssl ca -days $key_days -passin "pass:$(GetServerPassword)" -batch -out $_keys/$server_name.crt -in $_keys/$server_name.csr -extensions server -config $_cnf
+        & $_bin/openssl ca -days $key_days -passin "pass:$(GetServerPassword)" -batch -out $_keys/$server_name.crt -in $_keys/$server_name.csr -extensions server  -keyfile $_private/ca.key -config $_cnf
     }
 
     $client_names | ? { !(Test-Path $_keys/$_.crt) } | % {
         Write-Host "Generating client certificate [$_]..." -ForegroundColor Green
-        & $_bin/openssl req -days $key_days -passout "pass:$(GetClientPassword)" -new -keyout $_keys/$_.key -out $_keys/$_.csr -config $_cnf -subj $subject=$_
-        & $_bin/openssl ca -days $key_days -passin "pass:$(GetServerPassword)" -batch -out $_keys/$_.crt -in $_keys/$_.csr -config $_cnf
+        & $_bin/openssl req -days $key_days -passout "pass:$(GetClientPassword)" -new -keyout $_keys/$_.key -out $_keys/$_.csr -keyfile $_private/ca.key -config $_cnf -subj $subject=$_
+        & $_bin/openssl ca -days $key_days -passin "pass:$(GetServerPassword)" -batch -out $_keys/$_.crt -in $_keys/$_.csr -keyfile $_private/ca.key -config $_cnf
     }
 
     Write-Host "Generating server config..." -ForegroundColor Green
