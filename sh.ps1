@@ -62,14 +62,6 @@ $root = switch($shell) {
     "cygwin" { "/mnt/" }
 }
 
-Function Convert-Path([string]$path, [switch]$native) {
-    if (!$path) { return $path }
-    if ($native -and $shell -eq "wsl" -and $env:WSL_ROOT) { $path = $path.Replace($env:GIT_ROOT, $env:WSL_ROOT) }
-    $drive, $dir = $path -split ":"
-    if (!$dir) { return $path -replace '\\', '/' }
-    return $root + $drive.ToLower() + $dir -replace '\\', '/'
-}
-
 if (!(Test-Path $bash)) {
     out "{Red:Executable} {Yellow:$bash} {Red:doesn't exist for shell type '}{Green:$shell}{Red:'. Consider other shell types from the list:} {Green:('git', 'wsl', 'cygwin')}"
     exit 1
@@ -85,7 +77,7 @@ $commands = @()
 $path = (Resolve-Path $path).Path
 if (!$title) { $title = Split-Path $path -Leaf }
 
-$prompt_path = Convert-Path -path $path -native
+$prompt_path = shpath $path -native:($shell -eq "wsl")
 
 $envars.NONINTERACTIVE = [int]($command -and !$new)
 $envars.CUSTOM_PROMPT_COLOR = $prompt_color
@@ -93,7 +85,7 @@ $envars.CUSTOM_PROMPT_COLOR = $prompt_color
 $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
     $var = [Environment]::GetEnvironmentVariable($_)
     if ($var -and $var.Contains("`n")) { return }
-    $envars.$_ = Convert-Path -path $var
+    $envars.$_ = shpath $var
 }
 
 $envars.Keys | % {
@@ -112,7 +104,7 @@ if ($command) {
     if ($command.StartsWith("git -C ")) {
         $parts = $command -split " "
         $cd = $parts.IndexOf("-C")
-        $parts[$cd + 1] = Convert-Path -path $parts[$cd + 1] -native
+        $parts[$cd + 1] = shpath $parts[$cd + 1] -native
         $command = $parts
     }
 
