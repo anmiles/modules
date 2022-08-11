@@ -8,7 +8,9 @@ Function Patch {
     repo -name this -quiet -action {
         $result = @()
 
-        $src = $repo
+        $root = Join-Path $env:GIT_ROOT ".patch"
+
+        $src = $root
         $src = Join-Path $src $filename
         $src = Get-ChildItem $src -File -Recurse
 
@@ -21,15 +23,16 @@ Function Patch {
         $src | % {
             if ((Split-Path $_.DirectoryName -Leaf) -eq $moveTo) { return }
 
-            $filename = $_.FullName.Replace("$repo\", "").Replace("\", "/")
+            out "{Green:- $($src.Name)}"
+            $filename = $_.FullName
+            $filename_sh = shpath $filename -native
 
             if ($command) {
-                sh "$command '$filename'"
+                sh "$command $filename_sh"
             }
 
             if ($moveTo) {
-                $dst = $repo
-                $dst = Join-Path $dst (Split-Path $filename -Parent)
+                $dst = Split-Path $filename -Parent
                 $dst = Join-Path $dst $moveTo
                 New-Item -Type Directory $dst -Force | Out-Null
                 $dst = Join-Path $dst (Split-Path $filename -Leaf)
