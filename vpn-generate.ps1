@@ -128,6 +128,7 @@ Function Generate-VPN {
         Write-Host "Generating server certificate [$server_name]..." -ForegroundColor Green
         $altNameType = "DNS"
         if ($cn -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') { $altNameType = "IP" }
+        $_extensions_server_tmp = "$_keys/extensions.server.tmp"
         file $_extensions_server_tmp ((file $_extensions_server) + "subjectAltName = $($altNameType):$cn")
         GenerateCert -name $server_name -extfile $_extensions_server_tmp
         Remove-Item $_extensions_server_tmp
