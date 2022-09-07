@@ -210,7 +210,7 @@ Function Generate-VPN {
     }
 
     Write-Host "Updating firewall rule..." -ForegroundColor Green
-    $firewall_rule_name = "OpenVPN Server [$server_name]"
+    $firewall_rule_name = "OpenVPN Server"
     if (!(Get-NetFirewallRule | ? {$_.Name -eq $firewall_rule_name })) { New-NetFirewallRule -Name $firewall_rule_name -DisplayName $firewall_rule_name }
     Set-NetFirewallRule -Name $firewall_rule_name -Enabled True -Profile Any -Direction Inbound -Action Allow -Protocol ($proto_firewall -replace "\d", "") -LocalPort $port
 
