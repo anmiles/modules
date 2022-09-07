@@ -23,7 +23,7 @@ Function Generate-VPN {
         [Parameter(Mandatory = $true)][string]$email, # "user@example.com"
 
         [string]$dn = "org",
-        [string]$digest = "sha-512",
+        [string]$digest = "sha512",
         [int]$key_size = 2048,
         [int]$key_days = 3650,
         [int]$crl_days = 3650,
