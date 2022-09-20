@@ -1,3 +1,5 @@
+# Tested with OpenVPN v2.5.7
+
 Function Generate-VPN {
     Param (
         [string]$root = "D:/openvpn",
