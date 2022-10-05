@@ -61,12 +61,17 @@ class Counter {
             $this.times[$title] += $time
             $this.totalMilliseconds += $time.TotalMilliseconds
         }
-        
+
         $this.Set()
     }
 
     [object[]] Render() {
         $output = $this.titles | % { [PSCustomObject](@{Action = $_; Count = $this.counts[$_]; Time = $this.times[$_]}) }
+
+        if ($this.titles.Count -eq 1) {
+            $output = @($output)
+        }
+
         $output += [PSCustomObject](@{Action = $null})
         $output += [PSCustomObject](@{Action = "Total"; Count = 0; Time = Sum-Object($this.times)})
         return $output | Format-Table -Property $this.columns
