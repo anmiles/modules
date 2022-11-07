@@ -130,9 +130,11 @@ Function CreateBindingsForProtocolPort($name, $url, $public_ip, $local_ip, $prot
     if ($local_ip -ne $null) { CreateBinding -name $name -url $url -ip_address $local_ip -protocol $protocol -port $port }
 }
 
-Function CreateBindingsForWebsite($name, $url, $public_ip, $local_ip, $http, $https, $hosts = $null, $hosts_section = $null){
-    if ($http) { CreateBindingsForProtocolPort -name $name -url $url -public_ip $public_ip -local_ip $local_ip -protocol http -port 80 }
-    if ($https) { CreateBindingsForProtocolPort -name $name -url $url -public_ip $public_ip -local_ip $local_ip -protocol https -port 443 }
+Function CreateBindingsForWebsite($name, $url, $public_ip, $local_ip, $http, $https, $hosts = $null, $hosts_section = $null, $port = $null){
+    $http_port = switch($port){ $null {80} default {$port} }
+    $https_port = switch($port){ $null {443} default {$port} }
+    if ($http) { CreateBindingsForProtocolPort -name $name -url $url -public_ip $public_ip -local_ip $local_ip -protocol http -port $http_port }
+    if ($https) { CreateBindingsForProtocolPort -name $name -url $url -public_ip $public_ip -local_ip $local_ip -protocol https -port $https_port }
     if ($hosts -and $hosts_section) { $hosts.AddRecord($local_ip, $url, $hosts_section) }
 }
 
@@ -154,9 +156,9 @@ Function StopAppPool($name) {
     Get-ChildItem "IIS:\AppPools\" | ? { $_.Name -eq "clean.anmiles.net" } | Stop-WebAppPool
 }
 
-Function CreateIISRecord ($name, $url, $directory, $public_ip, $local_ip, $http, $https, $persistent = $false, $hosts = $null, $hosts_section = $null) {
+Function CreateIISRecord ($name, $url, $directory, $public_ip, $local_ip, $http, $https, $persistent = $false, $hosts = $null, $hosts_section = $null, $port = $null) {
     CreateWebsite -name $name -directory $directory -persistent $persistent
-    CreateBindingsForWebsite -name $name -url $url -public_ip $public_ip -local_ip $local_ip -http $http -https $https -hosts $hosts -hosts_section $hosts_section
+    CreateBindingsForWebsite -name $name -url $url -public_ip $public_ip -local_ip $local_ip -http $http -https $https -hosts $hosts -hosts_section $hosts_section -port $port
     EnsureWebsiteStarted -name $name
 }
 
