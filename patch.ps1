@@ -23,7 +23,7 @@ Function Patch {
         $src | % {
             if ((Split-Path $_.DirectoryName -Leaf) -eq $moveTo) { return }
 
-            out "{Green:- $($src.Name)}"
+            out "{Green:- $($_.Name)}"
             $filename = $_.FullName
             $filename_sh = shpath $filename -native
 
