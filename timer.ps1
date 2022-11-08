@@ -17,7 +17,8 @@ class Timer {
     [string]$task_title
     [TimeSpan]$elapsed
     [bool]$running
-    
+    [bool]$muted
+
     Timer([string]$format, [switch]$accurate) {
         $this.format = $format
         $this.accurate = $accurate
@@ -56,6 +57,8 @@ class Timer {
     }
 
     [void]Output([string]$text, $underline, $from_date, $_elapsed){
+        if ($this.muted) { return }
+
         if ($from_date -or $_elapsed) {
             $this.current_date = Get-Date
             if (!$_elapsed) { $_elapsed = ($this.current_date - $from_date) }
@@ -75,6 +78,14 @@ class Timer {
 
     [void]Output([string]$text, $underline, $from_date){
         $this.Output($text, $underline, $from_date, $null)
+    }
+
+    [void]Mute(){
+        $this.muted = $true
+    }
+
+    [void]Unmute(){
+        $this.muted = $false
     }
 }
 
