@@ -1,3 +1,17 @@
+$patch_root = Join-Path $env:GIT_ROOT ".patch"
+
+Function AltPatchName($filename, $dirname) {
+    if (![System.IO.Path]::IsPathRooted($filename)) {
+        $filename = Join-Path $patch_root $filename
+    }
+
+    $dst = Split-Path $filename -Parent
+    $dst = Join-Path $dst $dirname
+    New-Item -Type Directory $dst -Force | Out-Null
+    $dst = Join-Path $dst (Split-Path $filename -Leaf)
+    return $dst
+}
+
 Function Patch {
     Param (
         [Parameter(Mandatory = $true)][string]$filename,
@@ -8,11 +22,8 @@ Function Patch {
     repo -name this -quiet -action {
         $result = @()
 
-        $root = Join-Path $env:GIT_ROOT ".patch"
-
-        $src = $root
-        $src = Join-Path $src $filename
-        $src = Get-ChildItem $src -File -Recurse
+        $src = Join-Path $patch_root $filename
+        $src = Get-ChildItem $src -File
 
         if ($src.Count -gt 1) {
             if (!(confirm "This will process multiple patches:{Green:`n- $($src.Name -Join "`n- ")`n}Continue")) {
@@ -32,10 +43,7 @@ Function Patch {
             }
 
             if ($moveTo) {
-                $dst = Split-Path $filename -Parent
-                $dst = Join-Path $dst $moveTo
-                New-Item -Type Directory $dst -Force | Out-Null
-                $dst = Join-Path $dst (Split-Path $filename -Leaf)
+                $dst = AltPatchName -filename $filename -dirname $moveTo
                 Move-Item $filename $dst
                 $result += $dst
             } else {
