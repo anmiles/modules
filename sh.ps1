@@ -101,11 +101,16 @@ if ($command -and $new) {
 $commands += "cd $prompt_path"
 
 if ($command) {
+    $parts = $command -split " "
+
     if ($command.StartsWith("git -C ")) {
-        $parts = $command -split " "
         $cd = $parts.IndexOf("-C")
         $parts[$cd + 1] = shpath $parts[$cd + 1] -native
         $command = $parts
+    }
+
+    if ($parts[0] -eq "git" -and $parts.Contains("push")) {
+        $command = "$command 2>&1"
     }
 
     $commands += $command
