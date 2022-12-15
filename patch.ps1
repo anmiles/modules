@@ -1,4 +1,4 @@
-$patch_root = Join-Path $env:GIT_ROOT ".patch"
+$patch_root = Join-Path $env:GIT_ROOT "patch"
 
 Function AltPatchName($filename, $dirname) {
     if (![System.IO.Path]::IsPathRooted($filename)) {
