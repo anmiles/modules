@@ -17,7 +17,7 @@ Param (
     [switch]$quiet = $true
 )
 
-if ($quiet) { $quiet = "--quiet" } else { $quiet = "" }
+if ($quiet) { $quietString = "--quiet" } else { $quietString = "" }
 
 Import-Module $env:MODULES_ROOT\sql.ps1 -Force
 
@@ -45,7 +45,7 @@ if ($state -match "\.") {
 if ($state -eq "dev") {
     $session = $null
 } else {
-    $timer.StartTask("Connecting to $winrm_endpoint")
+    if ($progress) { $timer.StartTask("Connecting to $winrm_endpoint") }
     $securePassword =  $(ConvertTo-SecureString -AsPlainText -Force $win_password)
     $credential = $(New-Object System.Management.Automation.PSCredential $win_username, $securePassword)
     $session = New-PSSession -ConnectionUri $winrm_endpoint -Credential $credential
@@ -55,7 +55,7 @@ if (!$snapshot_name) {
     $snapshot_name = (Get-Date).ToUniversalTime().ToString("yyyy.MM.dd_HH.mm.ss")
 }
 
-$timer.StartTask("Compressing userdata in $userdata_directory")
+if ($progress) { $timer.StartTask("Compressing userdata in $userdata_directory") }
 Invoke-Command-In-Session -Session $session -ScriptBlock {
     param($userdata_directory)
     md $userdata_directory -Force
@@ -63,24 +63,24 @@ Invoke-Command-In-Session -Session $session -ScriptBlock {
     & 'C:\Program Files\7-Zip\7z.exe' a -y -r -bso0 -bsp0 -mx=0 "$userdata_directory.zip" .
 } -ArgumentList $userdata_directory
 
-$timer.StartTask("Uploading userdata to snapshot $snapshot_name")
+if ($progress) { $timer.StartTask("Uploading userdata to snapshot $snapshot_name") }
 Invoke-Command-In-Session -Session $session -ScriptBlock {
-    param($userdata_directory, $bucket_backup, $snapshot_name, $quiet)
-    aws s3 cp "$userdata_directory.zip" s3://$bucket_backup/$snapshot_name.zip $quiet
+    param($userdata_directory, $bucket_backup, $snapshot_name, $quietString)
+    aws s3 cp "$userdata_directory.zip" s3://$bucket_backup/$snapshot_name.zip $quietString
     del -Force "$userdata_directory.zip"
-} -ArgumentList $userdata_directory, $bucket_backup, $snapshot_name, $quiet
+} -ArgumentList $userdata_directory, $bucket_backup, $snapshot_name, $quietString
 
-$timer.StartTask("Backup database $db_name into $snapshot_name.bak")
+if ($progress) { $timer.StartTask("Backup database $db_name into $snapshot_name.bak") }
 rds_backup_database -sql_endpoint $sql_endpoint -sql_username $sql_username -sql_password $sql_password -db_name $db_name -bucket_backup $bucket_backup -snapshot_name "$snapshot_name.bak"
 
 if ($state -eq "web") {
-    $timer.StartTask("Copying JSON $environment_name.json into $snapshot_name.json")
-    aws s3 cp s3://$bucket_revision/$environment_name.json s3://$bucket_backup/$snapshot_name.json $quiet
+    if ($progress) { $timer.StartTask("Copying JSON $environment_name.json into $snapshot_name.json") }
+    aws s3 cp s3://$bucket_revision/$environment_name.json s3://$bucket_backup/$snapshot_name.json $quietString
 }
 
 if ($session) {
-    $timer.StartTask("Disconnecting")
+    if ($progress) { $timer.StartTask("Disconnecting") }
     Remove-PSSession -Session $session
 }
 
-$timer.Finish()
+if ($progress) { $timer.Finish() }

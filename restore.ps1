@@ -15,7 +15,7 @@ Param (
     [switch]$quiet = $true
 )
 
-if ($quiet) { $quiet = "--quiet" } else { $quiet = "" }
+if ($quiet) { $quietString = "--quiet" } else { $quietString = "" }
 
 Import-Module $env:MODULES_ROOT\sql.ps1 -Force
 
@@ -43,27 +43,27 @@ if ($state -match "\.") {
 if ($state -eq "dev") {
     $session = $null
 } else {
-    $timer.StartTask("Connecting to $winrm_endpoint")
+    if ($progress) { $timer.StartTask("Connecting to $winrm_endpoint") }
     $securePassword =  $(ConvertTo-SecureString -AsPlainText -Force $win_password)
     $credential = $(New-Object System.Management.Automation.PSCredential $win_username, $securePassword)
     $session = New-PSSession -ConnectionUri $winrm_endpoint -Credential $credential
 }
 
 if (!$snapshot_name) {
-    $timer.StartTask("Getting recent snapshot")
+    if ($progress) { $timer.StartTask("Getting recent snapshot") }
     $snapshots = $(aws s3 ls s3://$bucket_backup/) | ? {$_ -match ".json"} | % {$_ -replace ".*\s(\S+)\s*?$", '$1'}
     $snapshot = $snapshots | sort | select -last 1
     $snapshot_name = $snapshot -replace ".json", ""
 }
 
-$timer.StartTask("Downloading userdata from snapshot $snapshot_name into $userdata_directory")
+if ($progress) { $timer.StartTask("Downloading userdata from snapshot $snapshot_name into $userdata_directory") }
 Invoke-Command-In-Session -Session $session -ScriptBlock {
-    param($userdata_directory, $bucket_backup, $snapshot_name, $quiet)
-    aws s3 cp s3://$bucket_backup/$snapshot_name.zip "$userdata_directory.zip" $quiet
+    param($userdata_directory, $bucket_backup, $snapshot_name, $quietString)
+    aws s3 cp s3://$bucket_backup/$snapshot_name.zip "$userdata_directory.zip" $quietString
     Get-Item "$userdata_directory.zip" | Out-Host
-} -ArgumentList $userdata_directory, $bucket_backup, $snapshot_name, $quiet
+} -ArgumentList $userdata_directory, $bucket_backup, $snapshot_name, $quietString
 
-$timer.StartTask("Decompressing userdata in $userdata_directory")
+if ($progress) { $timer.StartTask("Decompressing userdata in $userdata_directory") }
 Invoke-Command-In-Session -Session $session -ScriptBlock {
     param($userdata_directory)
     md $userdata_directory -Force
@@ -73,18 +73,18 @@ Invoke-Command-In-Session -Session $session -ScriptBlock {
     del -Force "$userdata_directory.zip"
 } -ArgumentList $userdata_directory
 
-$timer.StartTask("Delete database $db_name")
+if ($progress) { $timer.StartTask("Delete database $db_name") }
 sql_delete_database -sql_endpoint $sql_endpoint -sql_username $sql_username -sql_password $sql_password -db_name $db_name
 
-$timer.StartTask("Restore database $db_name from $snapshot_name.bak")
+if ($progress) { $timer.StartTask("Restore database $db_name from $snapshot_name.bak") }
 rds_restore_database -sql_endpoint $sql_endpoint -sql_username $sql_username -sql_password $sql_password -db_name $db_name -db_username $db_username -db_password $db_password -bucket_backup $bucket_backup -snapshot_name "$snapshot_name.bak"
 
-$timer.StartTask("Recycling app pools")
+if ($progress) { $timer.StartTask("Recycling app pools") }
 Invoke-Command-In-Session -Session $session -ScriptBlock { Get-ChildItem "IIS:\AppPools\" | Restart-WebAppPool }
 
 if ($session) {
-    $timer.StartTask("Disconnecting")
+    if ($progress) { $timer.StartTask("Disconnecting") }
     Remove-PSSession -Session $session
 }
 
-$timer.Finish()
+if ($progress) { $timer.Finish() }
