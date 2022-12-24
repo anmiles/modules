@@ -1,7 +1,9 @@
 $ErrorActionPreference = "Stop"
+$debug = $true
 
 # Check that WebAdministration module is installed on the server
-if ((Get-Command | ? { $_.Name -eq "Get-WindowsFeature" }) -and (Get-WindowsFeature Web-Scripting-Tools).InstallState -ne "Installed") {
+Get-Command "Get-WindowsFeature" 2>&1 | Out-Null
+if ($? -and (Get-WindowsFeature Web-Scripting-Tools).InstallState -ne "Installed") {
     Import-Module ServerManager
     Add-WindowsFeature Web-Scripting-Tools
 }
@@ -188,15 +190,16 @@ Function MoveWebsite ($url, $new_name) {
     EnsureWebsiteStarted -name $new_name
 }
 
-Function PingWebsite ($name, $web_protocol, $monitoring) {
+Function PingWebsite ($name, $web_protocol, $monitoring, $headers) {
     Start-Sleep 1
-    if ($debug) { Write-Host "(wget `"${web_protocol}://${name}`" -UseBasicParsing).Content -notmatch $monitoring" }
-    
+    if ($debug) { Write-Host "(wget `"${web_protocol}://${name}`" -UseBasicParsing -Headers $headers).Content -notmatch $monitoring" }
+
     do {
         $success = $false
 
         try {
-            $success = (wget "${web_protocol}://${name}" -UseBasicParsing).Content -match $monitoring
+            $success = (wget "${web_protocol}://${name}" -Headers $headers -UseBasicParsing).Content -match $monitoring
+            if (!$success) { Write-Host "Monitoring string '$moniroting' not detected in page source" }
         } catch [System.Net.WebException] {
             # TODO Notify about this: action needed to get website working
             Write-Host $_.Exception -ForegroundColor Red
