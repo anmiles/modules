@@ -2,11 +2,11 @@ $ErrorActionPreference = "Stop"
 $debug = $true
 
 # Check that WebAdministration module is installed on the server
-Get-Command "Get-WindowsFeature" 2>&1 | Out-Null
-if ($? -and (Get-WindowsFeature Web-Scripting-Tools).InstallState -ne "Installed") {
-    Import-Module ServerManager
-    Add-WindowsFeature Web-Scripting-Tools
-}
+# Get-Command "Get-WindowsFeature" 2>&1 | Out-Null
+# if ($? -and (Get-WindowsFeature Web-Scripting-Tools).InstallState -ne "Installed") {
+#     Import-Module ServerManager
+#     Add-WindowsFeature Web-Scripting-Tools
+# }
 
 Import-Module WebAdministration
 
@@ -137,7 +137,10 @@ Function CreateBindingsForWebsite($name, $url, $public_ip, $local_ip, $http, $ht
     $https_port = switch($port){ $null {443} default {$port} }
     if ($http) { CreateBindingsForProtocolPort -name $name -url $url -public_ip $public_ip -local_ip $local_ip -protocol http -port $http_port }
     if ($https) { CreateBindingsForProtocolPort -name $name -url $url -public_ip $public_ip -local_ip $local_ip -protocol https -port $https_port }
-    if ($hosts -and $hosts_section) { $hosts.AddRecord($local_ip, $url, $hosts_section) }
+    if ($hosts -and $hosts_section) {
+        if ($debug) { Write-Host "`$hosts.AddRecord($local_ip, $url, $hosts_section)" }
+        $hosts.AddRecord($local_ip, $url, $hosts_section)
+    }
 }
 
 Function EnsureWebsiteStarted($name) {
