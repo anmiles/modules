@@ -59,13 +59,15 @@ class Timer {
     [void]Output([string]$text, $underline, $from_date, $_elapsed){
         if ($this.muted) { return }
 
+        $output_date = Get-Date
+
         if ($from_date -or $_elapsed) {
             $this.current_date = Get-Date
             if (!$_elapsed) { $_elapsed = ($this.current_date - $from_date) }
             $text += " {Gray:in} {Green:$($_elapsed.ToString($this.elapsedFormat))}"
         }
 
-        out "[$($this.current_date.ToString($this.format))] $text" -ForegroundColor Yellow -underline:$underline
+        out "[$($output_date.ToString($this.format))] $text" -ForegroundColor Yellow -underline:$underline
 
         if (!$from_date) {
             $this.current_date = Get-Date
