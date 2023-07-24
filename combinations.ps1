@@ -15,7 +15,7 @@ Function Get-Combinations {
                 @("", $part[0])
             }
             ($part[0] -eq "(") {
-                $variations = $part.Trim('()?').Split("|/")
+                $variations = $part.Trim('()?').Split("|")
                 if ($part[$part.Length - 1] -eq "?") { $variations = @("") + $variations}
                 $variations
             }
