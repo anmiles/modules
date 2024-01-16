@@ -85,7 +85,7 @@ $envars.CUSTOM_PROMPT_COLOR = $prompt_color
 $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
     $var = [Environment]::GetEnvironmentVariable($_)
     if ($var -and $var.Contains("`n")) { return }
-    $envars.$_ = shpath $var
+    $envars.$_ = shpath $var -native:($shell -eq "wsl")
 }
 
 $envars.Keys | % {
