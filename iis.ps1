@@ -58,11 +58,11 @@ class HostsFile {
         $this.records.section_name | Select -Unique | % {
             $section_name = $_
             $output += "## $section_name"
-            
+
             $this.records | ? { $_.section_name -eq $section_name } | % {
                 $output += "$($_.ip)`t$($_.hostname)"
             }
-            
+
             $output += ""
         }
 
@@ -83,7 +83,7 @@ Function CreateWebsite($name, $directory, $persistent = $false) {
     if (!$(Get-ChildItem "IIS:\AppPools\" | Where-Object {$_.Name -eq $name})) {
         if ($debug) { Write-Host "New-WebAppPool -Name $name" }
         $pool = New-WebAppPool -Name $name
-        
+
         if ($persistent) {
             if ($debug) { Write-Host "Set-ItemProperty (`"IIS:\AppPools\$name`") -Name processModel.idleTimeout -value ( [TimeSpan]::FromMinutes(0))" }
             Set-ItemProperty ("IIS:\AppPools\$name") -Name processModel.idleTimeout -value ( [TimeSpan]::FromMinutes(0))
