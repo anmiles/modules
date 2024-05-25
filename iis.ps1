@@ -154,11 +154,11 @@ Function EnsureWebsiteStarted($name) {
 }
 
 Function StartAppPool($name) {
-    Get-ChildItem "IIS:\AppPools\" | ? { $_.Name -eq "clean.anmiles.net" } | Start-WebAppPool
+    Get-ChildItem "IIS:\AppPools\" | ? { $_.Name -eq $name } | Start-WebAppPool
 }
 
 Function StopAppPool($name) {
-    Get-ChildItem "IIS:\AppPools\" | ? { $_.Name -eq "clean.anmiles.net" } | Stop-WebAppPool
+    Get-ChildItem "IIS:\AppPools\" | ? { $_.Name -eq $name } | Stop-WebAppPool
 }
 
 Function CreateIISRecord ($name, $url, $directory, $public_ip, $local_ip, $http, $https, $persistent = $false, $hosts = $null, $hosts_section = $null, $port = $null) {
