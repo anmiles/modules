@@ -13,6 +13,8 @@
     Environment variables object
 .PARAMETER new
     Whether to open new window
+.PARAMETER wait
+    Whether to not exit after executing a command
 .PARAMETER background
     Whether new window should be opened in background
 .PARAMETER debug
@@ -38,6 +40,7 @@ Param (
     [ValidateSet('', 'git', 'wsl', 'cygwin')][string]$shell,
     [HashTable]$envars,
     [switch]$new,
+    [switch]$wait,
     [switch]$background,
     [switch]$debug
 )
@@ -79,7 +82,7 @@ if (!$title) { $title = Split-Path $path -Leaf }
 
 $prompt_path = shpath $path -native:($shell -eq "wsl")
 
-$envars.NONINTERACTIVE = [int]($command -and !$new)
+$envars.NONINTERACTIVE = [int]($command -and !$new -and !$wait)
 $envars.CUSTOM_PROMPT_COLOR = $prompt_color
 
 $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
@@ -129,9 +132,24 @@ $b = switch($background) {
     $false { "" }
 }
 
+$n = switch($envars.NONINTERACTIVE) {
+    $true { "" }
+    $false { ":n" }
+}
+
 $arguments = @()
-if ($new) { $arguments += "-new_console:t:`"$title`"$b" }
+if ($new) { $arguments += "-new_console:t:`"$title`"$b$n" }
 $arguments += @("-i", "-c", "`"$($commands -Join ";")`"")
 # Write-Host "& $bash $arguments"
-& $bash $arguments
+
+Push-Location $HOME
+
+try {
+    & $bash $arguments
+} catch {
+    throw $_
+} finally {
+    Pop-Location
+}
+
 exit $LastExitCode
