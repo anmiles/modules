@@ -30,7 +30,7 @@ Function GetTextDistance($text1, $text2) {
 	return $diff[$len1, $len2]
 }
 
-Function GetClosest($text, $variants, $property) {
+Function GetAllClosest($text, $variants, $property) {
 	$distances = @{}
 
 	$variants | % {
@@ -41,5 +41,9 @@ Function GetClosest($text, $variants, $property) {
 		$distances[$distance] += $_
 	}
 
-	return $distances[($distances.Keys | Sort | Select -First 1)]
+	return $distances.Keys | Sort | % { $distances[$_] }
+}
+
+Function GetClosest($text, $variants, $property) {
+	return (GetAllClosest $text $variants $property)[0]
 }
