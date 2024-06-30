@@ -82,7 +82,8 @@ if (!$title) { $title = Split-Path $path -Leaf }
 
 $prompt_path = shpath $path -native:($shell -eq "wsl")
 
-$envars.NONINTERACTIVE = [int]($command -and !$new -and !$wait)
+$interactive = !$command -or $new -or $wait
+
 $envars.CUSTOM_PROMPT_COLOR = $prompt_color
 
 $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
@@ -90,6 +91,8 @@ $env:ENVARS.Split(",") | ? { $_ -ne "PATH" } | % {
     if ($var -and $var.Contains("`n")) { return }
     $envars.$_ = shpath $var -native:($shell -eq "wsl")
 }
+
+$envars.NONINTERACTIVE = if ($interactive) { 0 } else { 1 }
 
 $envars.Keys | % {
     $commands += "export $_=$($envars[$_])"
@@ -121,25 +124,19 @@ if ($command) {
 
 $commands += "exitcode=\`$?"
 
-if ($envars.NONINTERACTIVE) {
-    $commands += "exit \`$exitcode >/dev/null 2>&1"
+if ($interactive) {
+    $commands += "bash -i"
 } else {
-    $commands += "bash"
+    $commands += "exit \`$exitcode >/dev/null 2>&1"
 }
 
-$b = switch($background) {
-    $true { ":b" }
-    $false { "" }
-}
-
-$n = switch($envars.NONINTERACTIVE) {
-    $true { "" }
-    $false { ":n" }
-}
+$b = if ($background) { ":b" } else { "" }
+$n = if ($interactive) { ":n" } else { "" }
 
 $arguments = @()
 if ($new) { $arguments += "-new_console:t:`"$title`"$b$n" }
-$arguments += @("-i", "-c", "`"$($commands -Join ";")`"")
+if (!$interactive) { $arguments += @("-i") }
+$arguments += @("-c", "`"$($commands -Join ";")`"")
 # Write-Host "& $bash $arguments"
 
 Push-Location $HOME
