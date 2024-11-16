@@ -7,6 +7,8 @@
     Length of the progress bar (and +2 symbols for brackets)
 .PARAMETER title
     Title of the progress bar (can be set on any Tick)
+.PARAMETER fillColor
+    Color of the progress bar
 .EXAMPLE
     $progress = Start-Progress 40; $progress.Tick()
     # initialize progress for 40 items; increment 1 item
@@ -26,13 +28,16 @@ class ProgressBar {
     [char]$open = '['
     [char]$close = ']'
     [char]$fill = '.'
+    [string]$fillColor = [ConsoleColor]::White
     [bool]$inline = !([console]::IsOutputRedirected)
-    
-    ProgressBar([int]$count, [int]$length, [string]$title) {
+
+    ProgressBar([int]$count, [int]$length, [string]$title, [string]$fill, [string]$fillColor) {
         $this.count = $count
         $this.length = $length
         $this.threshold = [Math]::Max(1, [Math]::Floor($count / ($length * 2)))
         $this.title = $title
+        $this.fill = $fill
+        $this.fillColor = $fillColor
         $this.position = $this.titleLength = $this.title.Length
         #$this.inline = $false
     }
@@ -58,7 +63,7 @@ class ProgressBar {
                 Write-Host $this.close -ForegroundColor Green
             }
         }
-        
+
         return $this
     }
 
@@ -97,9 +102,9 @@ class ProgressBar {
                 Write-Host $this.title -NoNewline -ForegroundColor White
 
                 ($this.title.Length .. $this.titleLength) | % {
-                    Write-Host $this.fill -NoNewline
+                    Write-Host $this.fill -NoNewline -ForegroundColor $this.fillColor
                 }
-                
+
                 [console]::SetCursorPosition($prev_left, $prev_top)
             } else {
                 if ($this.title) {
@@ -121,7 +126,7 @@ class ProgressBar {
                 [console]::SetCursorPosition($this.left + $prev_position + 1, $this.top)
 
                 ($prev_position .. ($this.position - 1)) | % {
-                    Write-Host $this.fill -NoNewline -ForegroundColor White
+                    Write-Host $this.fill -NoNewline -ForegroundColor $this.fillColor
                 }
 
                 [console]::SetCursorPosition($prev_left, $prev_top)
@@ -136,8 +141,10 @@ Function Start-Progress {
     Param (
         [Parameter(Mandatory = $true)][int]$count,
         [int]$length = 100,
-        [string]$title = ""
+        [string]$title = "",
+        [string]$fill = ".",
+        [string]$fillColor = [ConsoleColor]::White
     )
 
-    return [ProgressBar]::new($count, $length, $title).Start()
+    return [ProgressBar]::new($count, $length, $title, $fill, $fillColor).Start()
 }
